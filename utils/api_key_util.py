@@ -37,8 +37,7 @@ class ApiKeyManager:
         """生成新密钥"""
         self.key = str(uuid.uuid4())
         data = {
-            "api_key": self.key,
-            "note": "请妥善保管此密钥，不要泄露"
+            "api_key": self.key
         }
 
         self.key_file.parent.mkdir(parents=True, exist_ok=True)
