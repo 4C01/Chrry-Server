@@ -1,5 +1,9 @@
 import logging
 import sys
+import os
+
+# 创建 logs 目录（如果不存在）
+os.makedirs('logs', exist_ok=True)
 
 logging.basicConfig(
     level=logging.INFO,
