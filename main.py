@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from functools import wraps
+import time
 
 from managers.ai_manager import ai_manager
 from managers.prompt_manager import prompt_manager
@@ -94,7 +95,7 @@ def create_prompt():
         success = prompt_manager.set_prompt(name, value)
 
         if success:
-            return ResponseUtil.success({"message": "提示词创建成功", "name": name}, 201)
+            return ResponseUtil.success({"message": "提示词创建成功", "name": name})
         else:
             return ResponseUtil.error(500, "创建提示词失败")
 
@@ -454,7 +455,7 @@ def create_chat():
             "conversation_id": conversation_id,
             "name": name,
             "message": "对话创建成功"
-        }, 201)
+        })
 
     except Exception as e:
         logger.error(f"创建聊天会话失败: {e}")
@@ -505,6 +506,5 @@ def health_check():
 
 
 if __name__ == '__main__':
-    import time
 
     app.run(debug=True, port=5000)
