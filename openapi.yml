@@ -602,3 +602,225 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/ai/list:
+    get:
+      summary: 列出所有AI配置
+      description: 获取系统中配置的所有AI模型和服务
+      responses:
+        '200':
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    provider:
+                      type: string
+                    model:
+                      type: string
+                    base_url:
+                      type: string
+                    api_key:
+                      type: string
+                      description: 脱敏显示的API密钥
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/ai/get:
+    get:
+      summary: 获取单个AI配置
+      description: 通过UUID获取特定的AI配置
+      parameters:
+        - name: uuid
+          in: query
+          required: true
+          schema:
+            type: string
+          description: AI配置的UUID
+      responses:
+        '200':
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                  name:
+                    type: string
+                  provider:
+                    type: string
+                  model:
+                    type: string
+                  api_key:
+                    type: string
+                  base_url:
+                    type: string
+                  temperature:
+                    type: number
+                    minimum: 0
+                    maximum: 2
+                  max_tokens:
+                    type: integer
+                  timeout:
+                    type: integer
+                    description: 请求超时时间（秒）
+        '400':
+          description: 缺少UUID参数
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: AI配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/ai/set:
+    post:
+      summary: 设置或更新AI配置
+      description: 创建新的AI配置或更新已存在的配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid, config]
+              properties:
+                uuid:
+                  type: string
+                  description: AI配置的唯一标识符
+                config:
+                  type: object
+                  required: [name, provider, model, api_key]
+                  properties:
+                    name:
+                      type: string
+                      description: AI配置的显示名称
+                    provider:
+                      type: string
+                      enum: [openai, deepseek, ollama, siliconflow]
+                      description: 服务提供商
+                    model:
+                      type: string
+                      description: 模型名称
+                    api_key:
+                      type: string
+                      description: API密钥
+                    base_url:
+                      type: string
+                      description: API基础URL
+                    temperature:
+                      type: number
+                      minimum: 0
+                      maximum: 2
+                      default: 0.7
+                    max_tokens:
+                      type: integer
+                      default: 1024
+                    timeout:
+                      type: integer
+                      default: 30
+                      description: 请求超时时间（秒）
+      responses:
+        '200':
+          description: 设置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/ai/delete:
+    post:
+      summary: 删除AI配置
+      description: 删除指定的AI配置
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid]
+              properties:
+                uuid:
+                  type: string
+                  description: 要删除的AI配置UUID
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: 缺少UUID参数
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: AI配置不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
