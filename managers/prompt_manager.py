@@ -67,7 +67,7 @@ class PromptManager:
         common = self.get_prompt("common")
         specific = self.get_prompt(prompt_type)
 
-        if not specific:
+        if not specific or prompt_type == "common":
             return common
 
         return f"{common}\n\n{specific}"
