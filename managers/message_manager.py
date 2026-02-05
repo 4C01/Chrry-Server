@@ -68,7 +68,8 @@ class MessageManager:
                 success = conversation_manager.add_message(
                     conversation_id=conversation,
                     role="tool",
-                    content=tool_response.get("content", "")
+                    content=tool_response.get("content", ""),
+                    tool_call_id=tool_response.get("tool_call_id")
                 )
                 if not success:
                     logger.warning(f"保存tool_response失败: {tool_response}")

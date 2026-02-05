@@ -96,7 +96,8 @@ class ConversationManager:
             content: str,
             tool_calls: Optional[List] = None,
             finish_reason: Optional[str] = None,
-            total_tokens: int = 0
+            total_tokens: int = 0,
+            tool_call_id: Optional[str] = None
     ) -> bool:
         """
         添加一条消息到对话（用户或AI消息）
@@ -108,6 +109,7 @@ class ConversationManager:
             tool_calls: 工具调用列表（仅assistant角色可能有）
             finish_reason: 完成原因（仅assistant角色）
             total_tokens: token使用量（仅assistant角色）
+            tool_call_id:
 
         Returns:
             是否成功
@@ -135,6 +137,15 @@ class ConversationManager:
             message["finish_reason"] = finish_reason
         if total_tokens > 0:
             message["usage"] = {"total_tokens": total_tokens}
+
+        if role == "tool" and tool_call_id:
+            message["tool_call_id"] = tool_call_id
+        elif role == "tool":
+            # 如果没有提供tool_call_id，尝试从content中提取
+            # 或者生成一个默认的
+            logger.warning(f"Tool消息缺少tool_call_id: {content[:100]}")
+            # 这里可以尝试从content中提取，或者使用一个占位符
+            message["tool_call_id"] = f"call_{int(time.time())}"
 
         try:
             # 1. 添加到raw_context（完整历史记录）

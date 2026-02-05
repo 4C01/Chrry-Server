@@ -1,5 +1,7 @@
 from managers.ai_manager import ai_manager
 from managers.prompt_manager import prompt_manager
+from utils.logger import logger
+import time
 
 
 def build_messages(system_prompt: str, context: list, messages: list, role: str, device: str):
@@ -26,9 +28,13 @@ def build_messages(system_prompt: str, context: list, messages: list, role: str,
         if msg["role"] == "assistant" and msg.get("tool_calls"):
             message_item["tool_calls"] = msg["tool_calls"]
 
-        # 如果是 tool 消息，需要 tool_call_id
+        # 如果是 tool 消息，必须包含 tool_call_id
         if msg["role"] == "tool" and msg.get("tool_call_id"):
             message_item["tool_call_id"] = msg["tool_call_id"]
+        elif msg["role"] == "tool":
+            # 如果上下文中没有tool_call_id，添加一个占位符
+            message_item["tool_call_id"] = f"call_missing_{int(time.time())}"
+            logger.warning(f"上下文中的tool消息缺少tool_call_id，使用占位符: {message_item['tool_call_id']}")
         final.append(message_item)
 
     for m in messages:
