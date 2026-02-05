@@ -17,10 +17,19 @@ def build_messages(system_prompt: str, context: list, messages: list, role: str,
     })
 
     for msg in context:
-        final.append({
+        message_item = {
             "role": msg["role"],
             "content": msg["content"]
-        })
+        }
+
+        # 如果是 assistant 且有工具调用
+        if msg["role"] == "assistant" and msg.get("tool_calls"):
+            message_item["tool_calls"] = msg["tool_calls"]
+
+        # 如果是 tool 消息，需要 tool_call_id
+        if msg["role"] == "tool" and msg.get("tool_call_id"):
+            message_item["tool_call_id"] = msg["tool_call_id"]
+        final.append(message_item)
 
     for m in messages:
         final.append({
@@ -100,6 +109,7 @@ def generate_payload(
     :return:
     """
     ai = ai_manager.get(ai)
+    payload = {}
 
     if ai["provider"] in ("openai", "deepseek", "ollama", "siliconflow"):
         payload = generate_openai_payload(
@@ -111,3 +121,4 @@ def generate_payload(
             device,
             tools
         )
+    return payload
