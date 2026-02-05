@@ -39,9 +39,9 @@ class CompressManager:
             # 3. 生成压缩摘要
             compressed_summary = self._generate_summary(tactical_content)
 
-            # 4. 调用ChatManager更新数据
-            from .conversation_manager import chat_manager
-            success = chat_manager.update_after_compression(
+            # 4. 调用ConversationManager更新数据
+            from .conversation_manager import conversation_manager
+            success = conversation_manager.update_after_compression(
                 conversation_id=conversation_id,
                 compressed_summary=compressed_summary,
                 keep_recent_messages=5  # 保留最近5条

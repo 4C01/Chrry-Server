@@ -196,7 +196,7 @@ class ConversationManager:
             logger.error(f"添加消息失败: {e}")
             return False
 
-    def _append_to_file(self, filepath: Path, data: Dict, max_items: int = 0):
+    def _append_to_file(self, filepath: Path, data: Dict):
         """向JSON文件追加数据"""
         existing_data = []
         if filepath.exists():
@@ -204,10 +204,6 @@ class ConversationManager:
                 existing_data = json.load(f)
 
         existing_data.append(data)
-
-        # 如果设置了最大数量，只保留最新的（tactical可能需要这个限制）
-        if max_items > 0 and len(existing_data) > max_items:
-            existing_data = existing_data[-max_items:]
 
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(existing_data, f, ensure_ascii=False, indent=2)
