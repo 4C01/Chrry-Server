@@ -11,7 +11,7 @@ def build_messages(system_prompt: str, context: list, messages: list, role: str,
             "content": system_prompt
         })
 
-    messages.append({
+    final.append({
         "role": "system",
         "content": f"【当前设备】{device}"
     })
@@ -36,7 +36,8 @@ def generate_openai_payload(
     role: str,
     context: list,
     ai: dict,
-    device: str
+    device: str,
+    tools
 ) -> dict:
     """
     生成OpenAI格式的payload
@@ -46,6 +47,7 @@ def generate_openai_payload(
     :param context: 上下文
     :param ai: 正在使用的ai的配置文件
     :param device: 正在使用的设备(正在使用的用户)
+    :param tools: 可用Tools
     :return:
     """
     system_prompt = prompt_manager.get_full_prompt(prompt_type)
@@ -67,19 +69,25 @@ def generate_openai_payload(
         "stream": ai.get("stream", False),
     }
 
+    if tools:
+        payload["tools"] = tools
+        # 某些模型可能需要显式设置tool_choice为"auto"或"required"
+        payload["tool_choice"] = ai.get("tool_choice", "auto")
+
     # seed 不是所有家都有，但 OpenAI / DeepSeek 支持
     if ai.get("seed") is not None:
         payload["seed"] = ai["seed"]
 
     return payload
 
-def generate(
+def generate_payload(
             prompt_type,
             messages,
             role,
             context,
             ai,
-        device):
+        device,
+    tools = None):
     """
     生成用于AI的json payload
     :param prompt_type: 使用的Prompt的identifier(存储在Prompt里)
@@ -88,6 +96,7 @@ def generate(
     :param context: 上下文
     :param ai: 正在使用的ai的UUID
     :param device: 正在使用的设备
+    :param tools: 可用Tools
     :return:
     """
     ai = ai_manager.get(ai)
@@ -99,5 +108,6 @@ def generate(
             role,
             context,
             ai,
-            device
+            device,
+            tools
         )
