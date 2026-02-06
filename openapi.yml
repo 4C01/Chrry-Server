@@ -3,10 +3,13 @@ info:
   title: Chrry-Server API
   description: 定制AI小助手服务端API
   version: v1
+  contact:
+    name: API支持
+    url: https://github.com/4C01/Chrry-Server
 
 servers:
   - url: http://localhost:5000
-    description: Chrry是一只可以以各种方式辅助你的小猫咪~~该项目地址为[Github](https://github.com/4C01/Chrry-Server),你也可以使用已经做好的Java客户端~[Github](https://github.com/4C01/Chrry-Client)
+    description: 本地开发服务器
 
 security:
   - ApiKeyAuth: []
@@ -29,6 +32,7 @@ components:
         data:
           type: object
           description: 响应数据
+          nullable: true
 
     ErrorResponse:
       type: object
@@ -50,558 +54,117 @@ components:
           type: string
           description: 提示词内容
 
-    ChatSession:
+    AIConfig:
       type: object
       properties:
-        uuid:
-          type: string
-          description: 会话唯一标识符
         name:
           type: string
-          description: 会话显示名称
+          description: AI配置名称
+        provider:
+          type: string
+          enum: [openai, deepseek, ollama, siliconflow]
+          description: 服务提供商
+        model:
+          type: string
+          description: 模型名称
+        api_key:
+          type: string
+          description: API密钥
+        base_url:
+          type: string
+          description: API基础URL
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+          default: 0.7
+        max_tokens:
+          type: integer
+          default: 1024
+        timeout:
+          type: integer
+          default: 30
+          description: 请求超时时间（秒）
+
+    ChatConversation:
+      type: object
+      properties:
+        conversation_id:
+          type: string
+          description: 对话唯一标识符
+        name:
+          type: string
+          description: 对话名称
         prompt:
           type: string
-          description: 关联的提示词名称
+          description: 使用的提示词类型
         ai:
           type: string
-          description: AI模型标识符
+          description: AI配置UUID
+        device:
+          type: string
+          description: 设备标识符
+        created:
+          type: integer
+          description: 创建时间戳
+        updated:
+          type: integer
+          description: 最后更新时间戳
+        message_count:
+          type: integer
+          description: 消息数量
 
     ChatMessage:
       type: object
       properties:
-        id:
-          type: integer
-          description: 消息ID
         role:
           type: string
-          enum: [user, assistant, system]
+          enum: [user, assistant, system, tool]
           description: 消息发送者角色
         content:
-          type: object
+          type: string
           description: 消息内容
         timestamp:
-          type: string
-          format: date-time
+          type: integer
           description: 消息时间戳
+        tool_calls:
+          type: array
+          items:
+            type: object
+          description: 工具调用列表（仅assistant角色）
+        tool_call_id:
+          type: string
+          description: 工具调用ID（仅tool角色）
+        finish_reason:
+          type: string
+          description: 完成原因（仅assistant角色）
+        usage:
+          type: object
+          properties:
+            total_tokens:
+              type: integer
+              description: 总token数
+
+    AIResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: AI回复的文本内容
+        tools:
+          type: array
+          items:
+            type: object
+          description: 工具调用列表
+        reason:
+          type: string
+          description: 完成原因
+        tokens:
+          type: integer
+          description: 使用的token数量
 
 paths:
-  /v1/prompt/set:
-    post:
-      summary: 创建或更新提示词
-      description: 创建新的提示词或更新已存在的提示词
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, value]
-              properties:
-                name:
-                  type: string
-                  description: 提示词标识符
-                value:
-                  type: string
-                  description: 提示词内容
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/prompt/get:
-    get:
-      summary: 通过名称获取提示词
-      description: 获取特定的提示词
-      parameters:
-        - name: name
-          in: query
-          required: true
-          schema:
-            type: string
-          description: 提示词名称
-        - name: uuid
-          in: query
-          required: false
-          schema:
-            type: string
-          description: UUID（为未来扩展保留）
-      responses:
-        '200':
-          description: 成功响应
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name:
-                    type: string
-                  value:
-                    type: string
-                  created_at:
-                    type: string
-                    format: date-time
-                  updated_at:
-                    type: string
-                    format: date-time
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 提示词不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-    post:
-      summary: 通过名称获取提示词（POST方式）
-      description: 使用POST方法获取特定的提示词
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                uuid:
-                  type: string
-      responses:
-        '200':
-          description: 成功响应
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Prompt'
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 提示词不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/prompt/list:
-    get:
-      summary: 列出所有提示词
-      description: 获取所有提示词作为名称-值映射
-      responses:
-        '200':
-          description: 成功响应
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: string
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/prompt/create:
-    post:
-      summary: 创建新的提示词
-      description: 创建新的提示词（不覆盖已存在的）
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [name, value]
-              properties:
-                name:
-                  type: string
-                  pattern: '^[a-zA-Z0-9_-]+$'
-                  description: 提示词标识符（字母、数字、下划线、短横线）
-                value:
-                  type: string
-                  description: 提示词内容
-      responses:
-        '201':
-          description: 创建成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 提示词已存在或服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/chat/send:
-    post:
-      summary: 发送聊天消息
-      description: 在聊天会话中发送消息
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [uuid, value]
-              properties:
-                uuid:
-                  type: string
-                  description: 聊天会话UUID
-                value:
-                  type: object
-                  description: 消息内容（JSON格式）
-      responses:
-        '200':
-          description: AI响应
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 聊天会话不存在或服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/chat/list:
-    get:
-      summary: 列出所有聊天会话
-      description: 获取所有聊天会话
-      responses:
-        '200':
-          description: 成功响应
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    prompt:
-                      type: string
-                    ai:
-                      type: string
-                    created_at:
-                      type: string
-                      format: date-time
-                    updated_at:
-                      type: string
-                      format: date-time
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/history/get:
-    get:
-      summary: 获取聊天历史
-      description: 获取聊天历史记录，支持压缩和分页选项
-      parameters:
-        - name: uuid
-          in: query
-          required: true
-          schema:
-            type: string
-          description: 聊天会话UUID
-        - name: tactical
-          in: query
-          schema:
-            type: boolean
-            default: false
-          description: 是否返回压缩后的历史记录
-        - name: lines
-          in: query
-          schema:
-            type: integer
-          description: 返回的行数
-        - name: start
-          in: query
-          schema:
-            type: integer
-          description: 起始行偏移量
-      responses:
-        '200':
-          description: 聊天历史
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 聊天会话不存在或服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/history/memory:
-    get:
-      summary: 获取记忆列表
-      description: 获取聊天会话的压缩记忆列表
-      parameters:
-        - name: uuid
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: 记忆列表
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 聊天会话不存在或服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/create:
-    post:
-      summary: 创建新的聊天会话
-      description: 使用AI模型和提示词创建新的聊天会话
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [ai, prompt, name]
-              properties:
-                ai:
-                  type: string
-                  description: AI模型标识符
-                prompt:
-                  type: string
-                  description: 提示词名称
-                name:
-                  type: string
-                  description: 聊天会话名称
-      responses:
-        '201':
-          description: 创建成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  uuid:
-                    type: string
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: AI或提示词不存在或服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /v1/delete:
-    post:
-      summary: 删除聊天会话
-      description: 删除聊天会话及其历史记录
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [uuid]
-              properties:
-                uuid:
-                  type: string
-                  description: 要删除的聊天会话UUID
-      responses:
-        '200':
-          description: 删除成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-        '400':
-          description: 请求错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: API密钥无效
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '422':
-          description: 参数格式错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: 聊天会话不存在或服务器内部错误
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+  # AI配置管理
   /v1/ai/list:
     get:
       summary: 列出所有AI配置
@@ -612,21 +175,19 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  properties:
-                    name:
-                      type: string
-                    provider:
-                      type: string
-                    model:
-                      type: string
-                    base_url:
-                      type: string
-                    api_key:
-                      type: string
-                      description: 脱敏显示的API密钥
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    test-ai-001:
+                      name: 测试AI
+                      provider: deepseek
+                      model: deepseek-chat
+                      api_key: sk-*****
+                      base_url: https://api.deepseek.com
+                      temperature: 0.7
+                      max_tokens: 1024
+                      timeout: 30
         '403':
           description: API密钥无效
           content:
@@ -657,29 +218,18 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  uuid:
-                    type: string
-                  name:
-                    type: string
-                  provider:
-                    type: string
-                  model:
-                    type: string
-                  api_key:
-                    type: string
-                  base_url:
-                    type: string
-                  temperature:
-                    type: number
-                    minimum: 0
-                    maximum: 2
-                  max_tokens:
-                    type: integer
-                  timeout:
-                    type: integer
-                    description: 请求超时时间（秒）
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    name: 测试AI
+                    provider: deepseek
+                    model: deepseek-chat
+                    api_key: sk-*****
+                    base_url: https://api.deepseek.com
+                    temperature: 0.7
+                    max_tokens: 1024
+                    timeout: 30
         '400':
           description: 缺少UUID参数
           content:
@@ -721,37 +271,7 @@ paths:
                   type: string
                   description: AI配置的唯一标识符
                 config:
-                  type: object
-                  required: [name, provider, model, api_key]
-                  properties:
-                    name:
-                      type: string
-                      description: AI配置的显示名称
-                    provider:
-                      type: string
-                      enum: [openai, deepseek, ollama, siliconflow]
-                      description: 服务提供商
-                    model:
-                      type: string
-                      description: 模型名称
-                    api_key:
-                      type: string
-                      description: API密钥
-                    base_url:
-                      type: string
-                      description: API基础URL
-                    temperature:
-                      type: number
-                      minimum: 0
-                      maximum: 2
-                      default: 0.7
-                    max_tokens:
-                      type: integer
-                      default: 1024
-                    timeout:
-                      type: integer
-                      default: 30
-                      description: 请求超时时间（秒）
+                  $ref: '#/components/schemas/AIConfig'
       responses:
         '200':
           description: 设置成功
@@ -759,6 +279,11 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    message: AI配置设置成功
+                    uuid: test-ai-001
         '400':
           description: 请求参数错误
           content:
@@ -778,30 +303,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /v1/ai/delete:
+  # 提示词管理
+  /v1/prompt/set:
     post:
-      summary: 删除AI配置
-      description: 删除指定的AI配置
+      summary: 创建或更新提示词
+      description: 创建新的提示词或更新已存在的提示词
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [uuid]
+              required: [name, value]
               properties:
-                uuid:
+                name:
                   type: string
-                  description: 要删除的AI配置UUID
+                  description: 提示词标识符
+                value:
+                  type: string
+                  description: 提示词内容
       responses:
         '200':
-          description: 删除成功
+          description: 设置成功
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    message: 提示词设置成功
+                    name: common
         '400':
-          description: 缺少UUID参数
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: 参数格式错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/prompt/get:
+    get:
+      summary: 通过名称获取提示词
+      description: 获取特定的提示词
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 提示词名称
+      responses:
+        '200':
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    name: common
+                    value: "你是一个乐于助人的AI助手，请以友好、专业的方式回答用户的问题。"
+        '400':
+          description: 请求错误
           content:
             application/json:
               schema:
@@ -813,7 +395,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: AI配置不存在
+          description: 提示词不存在
           content:
             application/json:
               schema:
@@ -824,3 +406,372 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/prompt/list:
+    get:
+      summary: 列出所有提示词
+      description: 获取所有提示词
+      responses:
+        '200':
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    common: "你是一个乐于助人的AI助手，请以友好、专业的方式回答用户的问题。"
+                    coding: "你是一个专业的程序员，擅长编写各种代码。"
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 对话管理
+  /v1/create:
+    post:
+      summary: 创建新的聊天会话
+      description: 使用AI模型和提示词创建新的聊天会话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, prompt, ai, device]
+              properties:
+                name:
+                  type: string
+                  description: 聊天会话名称
+                prompt:
+                  type: string
+                  description: 提示词名称
+                ai:
+                  type: string
+                  description: AI配置UUID
+                device:
+                  type: string
+                  description: 设备标识符
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    conversation_id: "2df822a2-9002-47fc-be9b-eccf6547388c"
+                    name: "测试对话"
+                    message: "对话创建成功"
+        '400':
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: AI或提示词不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/chat/send:
+    post:
+      summary: 发送聊天消息
+      description: 在聊天会话中发送消息
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [conversation, device, message]
+              properties:
+                conversation:
+                  type: string
+                  description: 聊天会话UUID
+                device:
+                  type: string
+                  description: 设备标识符
+                message:
+                  type: string
+                  description: 消息内容
+                tool_response:
+                  type: object
+                  description: 工具执行结果
+                tools:
+                  type: array
+                  description: 可用工具列表
+      responses:
+        '200':
+          description: AI响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    message: "你好！我是AI助手，有什么可以帮助你的吗？"
+                    tools: []
+                    reason: "stop"
+                    tokens: 42
+        '400':
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 聊天会话不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/chat/list:
+    get:
+      summary: 列出所有聊天会话
+      description: 获取所有聊天会话，可选按设备筛选
+      parameters:
+        - name: device
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 设备标识符，用于筛选对话
+      responses:
+        '200':
+          description: 成功响应
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    "2df822a2-9002-47fc-be9b-eccf6547388c":
+                      name: "测试对话"
+                      prompt: "common"
+                      ai: "test-ai-001"
+                      device: "test_device_001"
+                      created: 1741589723
+                      updated: 1741589823
+                      message_count: 10
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 历史记录管理
+  /v1/history/get:
+    get:
+      summary: 获取聊天历史
+      description: 获取聊天历史记录，支持压缩和分页选项
+      parameters:
+        - name: uuid
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 聊天会话UUID
+        - name: tactical
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: 是否只返回压缩后的历史记录
+        - name: lines
+          in: query
+          schema:
+            type: integer
+          description: 返回的行数
+      responses:
+        '200':
+          description: 聊天历史
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                examples:
+                  tactical:
+                    summary: 只返回tactical历史
+                    value:
+                      success: true
+                      data:
+                        tactical:
+                          - role: user
+                            content: "你好"
+                            timestamp: 1741589723
+                          - role: assistant
+                            content: "你好！有什么可以帮助你的吗？"
+                            timestamp: 1741589725
+                        message_count: 2
+                  full:
+                    summary: 返回完整历史
+                    value:
+                      success: true
+                      data:
+                        metadata:
+                          name: "测试对话"
+                          prompt: "common"
+                          ai: "test-ai-001"
+                          interval: 8
+                          device: "test_device_001"
+                          created: 1741589723
+                          updated: 1741589823
+                          message_count: 10
+                        tactical:
+                          - role: user
+                            content: "最近的消息"
+                            timestamp: 1741589820
+                          - role: assistant
+                            content: "这是回复"
+                            timestamp: 1741589823
+                        archive:
+                          - type: compressed
+                            content: "用户询问了天气情况，AI提供了天气信息"
+                            original_count: 8
+                            timestamp: 1741589800
+                        raw_context: []
+        '400':
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 聊天会话不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/history/memory:
+    get:
+      summary: 获取记忆列表
+      description: 获取聊天会话的压缩记忆列表
+      parameters:
+        - name: uuid
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 聊天会话UUID
+      responses:
+        '200':
+          description: 记忆列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+                example:
+                  success: true
+                  data:
+                    memories:
+                      - "用户询问了天气情况，AI提供了天气信息"
+                      - "用户询问了时间，AI提供了当前时间"
+                    count: 2
+        '400':
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: API密钥无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: 聊天会话不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # 健康检查
+  /health:
+    get:
+      summary: 健康检查
+      description: 检查API服务是否正常运行
+      responses:
+        '200':
+          description: 服务正常
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: number
+                    example: 1741589723
+                  version:
+                    type: string
+                    example: v1.0.0
