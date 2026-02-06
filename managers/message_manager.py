@@ -1,5 +1,4 @@
-import requests
-from typing import Dict, Optional, Any
+from typing import Dict, Any
 
 from utils.ai_response_util import extract_ai_response
 from utils.logger import logger
@@ -110,7 +109,7 @@ class MessageManager:
                 return self._error("生成请求参数失败")
 
             # 8. 调用AI服务
-            ai_response = self._call_ai(ai_config, payload)
+            ai_response = ai_manager.call_ai(ai_config, payload)
             if not ai_response:
                 return self._error("AI服务无响应")
 
@@ -143,43 +142,7 @@ class MessageManager:
             logger.error(f"处理消息失败: {e}", exc_info=True)
             return self._error(f"服务器错误: {str(e)}")
 
-    def _call_ai(self, ai_config: Dict, payload: Dict) -> Optional[Dict]:
-        """调用AI服务"""
-        try:
-            provider = ai_config.get("provider", "openai")
-            base_url = ai_config.get("base_url", "https://api.openai.com/v1")
-            api_key = ai_config.get("api_key", "")
 
-            # 设置endpoint
-            if provider == "ollama":
-                endpoint = "/api/chat"
-                if "localhost" not in base_url:
-                    base_url = "http://localhost:11434"
-            else:
-                endpoint = "/chat/completions"
-
-            url = f"{base_url.rstrip('/')}{endpoint}"
-
-            headers = {"Content-Type": "application/json"}
-            if provider != "ollama":
-                headers["Authorization"] = f"Bearer {api_key}"
-
-            # 设置超时
-            timeout = ai_config.get("timeout", 30)
-
-            logger.debug(f"发送请求到: {url}")
-
-            response = requests.post(url, headers=headers, json=payload, timeout=timeout)
-
-            if response.status_code == 200:
-                return response.json()
-            else:
-                logger.error(f"AI请求失败 {response.status_code}: {response.text[:200]}")
-                return None
-
-        except Exception as e:
-            logger.error(f"调用AI失败: {e}")
-            return None
 
     def _success(self, response_data: Dict) -> Dict[str, Any]:
         """成功响应"""

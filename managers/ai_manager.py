@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 from utils.logger import logger
+import requests
+from typing import Dict, Optional
 
 
 class AIConfigManager:
@@ -54,5 +56,43 @@ class AIConfigManager:
 
         del self.ais[uuid]
         return self.save()
+
+    def call_ai(self, ai_config: Dict, payload: Dict) -> Optional[Dict]:
+        """调用AI服务"""
+        try:
+            provider = ai_config.get("provider", "openai")
+            base_url = ai_config.get("base_url", "https://api.openai.com/v1")
+            api_key = ai_config.get("api_key", "")
+
+            # 设置endpoint
+            if provider == "ollama":
+                endpoint = "/api/chat"
+                if "localhost" not in base_url:
+                    base_url = "http://localhost:11434"
+            else:
+                endpoint = "/chat/completions"
+
+            url = f"{base_url.rstrip('/')}{endpoint}"
+
+            headers = {"Content-Type": "application/json"}
+            if provider != "ollama":
+                headers["Authorization"] = f"Bearer {api_key}"
+
+            # 设置超时
+            timeout = ai_config.get("timeout", 30)
+
+            logger.debug(f"发送请求到: {url}")
+
+            response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.error(f"AI请求失败 {response.status_code}: {response.text[:200]}")
+                return None
+
+        except Exception as e:
+            logger.error(f"调用AI失败: {e}")
+            return None
 
 ai_manager = AIConfigManager()

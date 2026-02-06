@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 
-from managers.compress_manager import compress_manager
 from utils.logger import logger
 
 
@@ -177,6 +176,8 @@ class ConversationManager:
 
                 # 这里调用CompressManager.compress()，先假设存在
                 try:
+
+                    from managers.compress_manager import compress_manager
                     compress_success = compress_manager.compress(conversation_id, tactical_content)
 
                     if compress_success:
