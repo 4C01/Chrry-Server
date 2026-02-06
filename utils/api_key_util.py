@@ -44,7 +44,7 @@ class ApiKeyManager:
         with open(self.key_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
 
-        logger.info(f" 新API密钥已生成: {self.key}")
+        logger.info(f" 新API密钥已生成: {self.key},保存至data/api_key.json")
         logger.info(" 使用示例:")
         logger.info(f"   curl -H 'X-API-Key: {self.key}' http://localhost:5000/health")
         logger.info(f"   或 curl 'http://localhost:5000/health?key={self.key}'")
