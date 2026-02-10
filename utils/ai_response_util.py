@@ -1,3 +1,4 @@
+import time
 
 from utils.logger import logger
 
@@ -67,6 +68,102 @@ def extract_openai_response(ai_response: dict):
 
     logger.debug(f"收到AI回复:{result}")
     return result
+
+
+def extract_gemini_response(gemini_response: dict):
+    """
+    从Gemini API响应中提取数据，转换为OpenAI格式
+
+    Gemini响应格式参考：
+    {
+        "candidates": [{
+            "content": {
+                "parts": [{"text": "..."}],
+                "role": "model"
+            },
+            "finishReason": "STOP",
+            "usageMetadata": {
+                "promptTokenCount": 10,
+                "candidatesTokenCount": 20,
+                "totalTokenCount": 30
+            }
+        }]
+    }
+    """
+    result = {
+        "message": "",
+        "tools": [],
+        "reason": "unknown",
+        "tokens": 0
+    }
+
+    try:
+        # 1. 检查candidates字段
+        if "candidates" not in gemini_response or not gemini_response["candidates"]:
+            logger.warning("Gemini响应中没有candidates字段或为空")
+            return result
+
+        candidate = gemini_response["candidates"][0]
+
+        # 2. 提取message (text content)
+        if "content" in candidate and "parts" in candidate["content"]:
+            parts = candidate["content"]["parts"]
+            text_parts = [part["text"] for part in parts if "text" in part]
+            result["message"] = "".join(text_parts)
+
+        # 3. 提取reason (finishReason)
+        if "finishReason" in candidate:
+            # 映射Gemini的finishReason到OpenAI的finish_reason
+            reason_mapping = {
+                "STOP": "stop",
+                "MAX_TOKENS": "length",
+                "SAFETY": "content_filter",
+                "RECITATION": "content_filter",
+                "OTHER": "stop"
+            }
+            result["reason"] = reason_mapping.get(candidate["finishReason"], "unknown")
+
+        # 4. 提取tokens (usageMetadata)
+        if "usageMetadata" in candidate:
+            usage = candidate["usageMetadata"]
+            result["tokens"] = usage.get("totalTokenCount", 0)
+
+            prompt_tokens = usage.get("promptTokenCount", 0)
+            candidates_tokens = usage.get("candidatesTokenCount", 0)
+            logger.info(f"[Gemini Token使用] 本次请求: {result['tokens']}总tokens "
+                        f"({prompt_tokens}输入 + {candidates_tokens}输出)")
+
+        # 5. 处理函数调用（如果Gemini支持）
+        if "functionCalls" in candidate:
+            # 将Gemini函数调用转换为OpenAI的tool_calls格式
+            result["tools"] = convert_gemini_functions_to_openai_tools(candidate["functionCalls"])
+
+        logger.debug(f"提取Gemini响应: {len(result['message'])}字符, "
+                     f"{len(result['tools'])}个工具调用, "
+                     f"原因: {result['reason']}")
+
+    except Exception as e:
+        logger.error(f"提取Gemini响应失败: {e}")
+        result["_raw"] = gemini_response
+
+    return result
+
+
+def convert_gemini_functions_to_openai_tools(gemini_functions):
+    """将Gemini函数调用转换为OpenAI的tool_calls格式"""
+    tools = []
+    for i, func in enumerate(gemini_functions):
+        tool_call = {
+            "id": f"call_{i}_{int(time.time())}",
+            "type": "function",
+            "function": {
+                "name": func.get("name", ""),
+                "arguments": func.get("args", {})
+            }
+        }
+        tools.append(tool_call)
+    return tools
+
 
 def extract_ai_response(ai_response: dict, provider: str):
     response = {}

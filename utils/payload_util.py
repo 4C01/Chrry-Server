@@ -85,17 +85,44 @@ def build_messages(system_prompt: str, context: list, messages: list, role: str,
 
     return final
 
-def generate_openai_payload(
-    prompt_type: str,
-    messages: list,
-    role: str,
-    context: list,
-    ai: dict,
-    device: str,
-    tools
-) -> dict:
+def convert_to_gemini_format(openai_messages: list) -> dict:
+    """将OpenAI格式转换为Gemini格式"""
+    gemini_contents = []
+    system_instruction = ""
+
+    for msg in openai_messages:
+        if msg["role"] == "system":
+            # 收集系统提示
+            if system_instruction:
+                system_instruction += "\n" + msg["content"]
+            else:
+                system_instruction = msg["content"]
+        elif msg["role"] == "user":
+            gemini_contents.append({
+                "role": "user",
+                "parts": [{"text": msg["content"]}]
+            })
+        elif msg["role"] == "assistant":
+            gemini_contents.append({
+                "role": "model",
+                "parts": [{"text": msg["content"]}]
+            })
+        elif msg["role"] == "tool":
+            # Gemini不支持tool消息，转换为用户消息
+            gemini_contents.append({
+                "role": "user",
+                "parts": [{"text": f"[Tool Result] {msg['content']}"}]
+            })
+
+    return {
+        "contents": gemini_contents,
+        "system_instruction": {"parts": [{"text": system_instruction}]} if system_instruction else None
+    }
+
+
+def generate_payload(prompt_type, messages, role, context, ai, device, tools=None):
     """
-    生成OpenAI格式的payload
+    统一payload生成
     :param prompt_type: 使用的Prompt的identifier(存储在Prompt里)
     :param messages: 新消息
     :param role: role
@@ -105,9 +132,12 @@ def generate_openai_payload(
     :param tools: 可用Tools
     :return:
     """
+    ai_config = ai_manager.get(ai)
+    provider = ai_config["provider"].lower()
     system_prompt = prompt_manager.get_full_prompt(prompt_type)
 
-    final_messages = build_messages(
+    # 1. 构建内部消息格式（OpenAI格式）
+    internal_messages = build_messages(
         system_prompt=system_prompt,
         context=context,
         messages=messages,
@@ -115,61 +145,52 @@ def generate_openai_payload(
         device=device
     )
 
-    payload = {
-        "model": ai["model"],
-        "messages": final_messages,
-        "temperature": ai.get("temperature", 0.7),
-        "top_p": ai.get("top_p", 1.0),
-        "max_tokens": ai.get("max_tokens", 1024),
-        "stream": ai.get("stream", False),
-    }
+    # 2. 根据提供商生成对应payload
+    if provider in ("gemini", "google", "google-ai"):
+        # Gemini格式
+        gemini_format = convert_to_gemini_format(internal_messages)
 
-    # 检查是否包含"压缩任务"
-    if "压缩任务" in device:
-        payload["temperature"] = 0.3  # 压缩任务需要更确定性
-        payload["max_tokens"] = 1000  # 限制压缩输出的长度
+        payload = {
+            "contents": gemini_format["contents"],
+            "generationConfig": {
+                "temperature": ai_config.get("temperature", 0.7),
+                "topP": ai_config.get("top_p", 1.0),
+                "maxOutputTokens": ai_config.get("max_tokens", 1024),
+            }
+        }
 
-    if tools:
-        payload["tools"] = tools
-        # 某些模型可能需要显式设置tool_choice为"auto"或"required"
-        payload["tool_choice"] = ai.get("tool_choice", "auto")
+        # 添加系统指令
+        if gemini_format.get("system_instruction"):
+            payload["system_instruction"] = gemini_format["system_instruction"]
 
-    # seed 不是所有家都有，但 OpenAI / DeepSeek 支持
-    if ai.get("seed") is not None:
-        payload["seed"] = ai["seed"]
+        # 压缩任务特殊配置
+        if "压缩任务" in device:
+            payload["generationConfig"]["temperature"] = 0.3
+            payload["generationConfig"]["maxOutputTokens"] = 500
 
-    return payload
+        return payload
 
-def generate_payload(
-            prompt_type,
-            messages,
-            role,
-            context,
-            ai,
-        device,
-    tools = None):
-    """
-    生成用于AI的json payload
-    :param prompt_type: 使用的Prompt的identifier(存储在Prompt里)
-    :param messages: 新消息
-    :param role: role
-    :param context: 上下文
-    :param ai: 正在使用的ai的UUID
-    :param device: 正在使用的设备
-    :param tools: 可用Tools
-    :return:
-    """
-    ai = ai_manager.get(ai)
-    payload = {}
+    else:
+        # OpenAI兼容格式
+        payload = {
+            "model": ai_config["model"],
+            "messages": internal_messages,
+            "temperature": ai_config.get("temperature", 0.7),
+            "top_p": ai_config.get("top_p", 1.0),
+            "max_tokens": ai_config.get("max_tokens", 1024),
+            "stream": ai_config.get("stream", False),
+        }
 
-    if ai["provider"] in ("openai", "deepseek", "ollama", "siliconflow"):
-        payload = generate_openai_payload(
-            prompt_type,
-            messages,
-            role,
-            context,
-            ai,
-            device,
-            tools
-        )
-    return payload
+        # 压缩任务特殊配置
+        if "压缩任务" in device:
+            payload["temperature"] = 0.3
+            payload["max_tokens"] = 1000
+
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = ai_config.get("tool_choice", "auto")
+
+        if ai_config.get("seed") is not None:
+            payload["seed"] = ai_config["seed"]
+
+        return payload
