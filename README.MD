@@ -6,7 +6,10 @@ _外桂和友商发力了,谁说全栈MC开发不能做小玩意了_
 
 Chrry 是一只可爱又实用的私人AI管家小猫咪，能够根据您的不同需求进行定制，帮助您处理日常任务、回答问题、提供灵感等。通过不同的会话配置，您可以拥有专属于各种场景的AI助手。
 
-_目前大概只兼容 OpenAI格式的API(Siliconflow, Deepseek, ChatGPT, Qwen, GLM etc.), 正在写Gemini_  
+_目前大概只兼容 OpenAI格式的API(Siliconflow, Deepseek, ChatGPT, Qwen, GLM etc.), Gemini写炸了_  
+
+请使用 OpenAI Compatibility 方式来使用[Gemini](https://ai.google.dev/gemini-api/docs/openai)和[Claude](https://platform.claude.com/docs/en/api/openai-sdk)
+
 本项目采用 [MIT 许可证](./LICENCE)  
 
 [API Usage](./openapi.yml) (你可以把这个喂给AI,让AI来测试连接并写一个客户端)
